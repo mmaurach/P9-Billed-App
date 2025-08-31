@@ -99,4 +99,62 @@ describe("Given I am connected as an employee", () => {
       expect(fakeEvent.target.value).toBe("C:\\fakepath\\image.png");
     });
   });
+  describe("When I submit the NewBill form with valid data", () => {
+    test("It should call updateBill and redirect me to the Bills Page", () => {
+      Object.defineProperty(window, "localStorage", {
+        value: localStorageMock,
+      });
+      window.localStorage.setItem(
+        "user",
+        JSON.stringify({
+          type: "Employee",
+        })
+      );
+      const form = document.createElement("form");
+      form.innerHTML = `
+      <select data-testid="expense-type"><option value="Transports">Transports</option></select>
+      <input data-testid="expense-name" value="Taxi" />
+      <input data-testid="amount" value="50" />
+      <input data-testid="datepicker" value="2023-09-10" />
+      <input data-testid="vat" value="20" />
+      <input data-testid="pct" value="10" />
+      <textarea data-testid="commentary">Business trip</textarea>
+    `;
+
+      const fakeEvent = { preventDefault: jest.fn(), target: form };
+
+      const updateBillMock = jest.fn();
+      const onNavigateMock = jest.fn();
+
+      const newBill = new NewBill({
+        document,
+        onNavigate: onNavigateMock,
+        store: null,
+        localStorage: window.localStorage,
+      });
+
+      newBill.updateBill = updateBillMock;
+      newBill.fileUrl = "http://localhost/image.png";
+      newBill.fileName = "image.png";
+
+      newBill.handleSubmit(fakeEvent);
+
+      expect(fakeEvent.preventDefault).toHaveBeenCalled();
+      expect(updateBillMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "Transports",
+          name: "Taxi",
+          amount: 50,
+          date: "2023-09-10",
+          vat: "20",
+          pct: 10,
+          commentary: "Business trip",
+          fileUrl: "http://localhost/image.png",
+          fileName: "image.png",
+          status: "pending",
+        })
+      );
+      expect(onNavigateMock).toHaveBeenCalledWith("#employee/bills");
+    });
+  });
 });
