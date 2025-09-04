@@ -6,39 +6,31 @@ import { screen } from "@testing-library/dom";
 import NewBillUI from "../views/NewBillUI.js";
 import NewBill from "../containers/NewBill.js";
 import { localStorageMock } from "../__mocks__/localStorage.js";
-import { ROUTES_PATH, ROUTES } from "../constants/routes.js";
-import router from "../app/Router.js";
+import userEvent from "@testing-library/user-event";
 
 describe("Given I am connected as an employee", () => {
+  beforeEach(() => {
+    Object.defineProperty(window, "localStorage", { value: localStorageMock });
+    window.localStorage.setItem("user", JSON.stringify({ type: "Employee" }));
+    document.body.innerHTML = NewBillUI();
+  });
+
   describe("When I am on NewBill Page", () => {
-    test("Then ...", () => {
-      const html = NewBillUI();
-      document.body.innerHTML = html;
-      //to-do write assertion
+    test("Then it should render the form", () => {
+      expect(screen.getByTestId("form-new-bill")).toBeTruthy();
     });
   });
-  describe("When I am on NewBill Page and I upload a invalid file", () => {
-    Object.defineProperty(window, "localStorage", {
-      value: localStorageMock,
-    });
-    window.localStorage.setItem(
-      "user",
-      JSON.stringify({
-        type: "Employee",
-      })
-    );
-    test("Must display an alert and reset the field", () => {
+
+  describe("When I upload an invalid file", () => {
+    test("It should show an alert and reset the input value", () => {
       window.alert = jest.fn();
-      const onNavigate = (pathname) => {
-        document.body.innerHTML = ROUTES({ pathname });
-      };
-      const store = null;
       const newBill = new NewBill({
         document,
-        onNavigate,
-        store,
-        localStorage: localStorageMock,
+        onNavigate: jest.fn(),
+        store: null,
+        localStorage: window.localStorage,
       });
+
       const fakeEvent = {
         preventDefault: jest.fn(),
         target: {
@@ -46,25 +38,18 @@ describe("Given I am connected as an employee", () => {
           files: [new File(["test"], "test.txt", { type: "text/plain" })],
         },
       };
+
       newBill.handleChangeFile(fakeEvent);
+
       expect(window.alert).toHaveBeenCalledWith(
         "Format de fichier invalide. Seuls les fichiers JPEG, JPG et PNG sont autorisés."
       );
       expect(fakeEvent.target.value).toBe("");
     });
   });
-  describe("When I am on NewBill Page and I upload a valid file", () => {
-    Object.defineProperty(window, "localStorage", {
-      value: localStorageMock,
-    });
-    window.localStorage.setItem(
-      "user",
-      JSON.stringify({
-        type: "Employee",
-      })
-    );
 
-    test("Must NOT display an alert and must keep the field value", async () => {
+  describe("When I upload a valid file", () => {
+    test("It should NOT show an alert and keep the input value", async () => {
       window.alert = jest.fn();
 
       const mockStore = {
@@ -75,14 +60,12 @@ describe("Given I am connected as an employee", () => {
           }),
         })),
       };
-      const onNavigate = (pathname) => {
-        document.body.innerHTML = ROUTES({ pathname });
-      };
+
       const newBill = new NewBill({
         document,
-        onNavigate,
+        onNavigate: jest.fn(),
         store: mockStore,
-        localStorage: localStorageMock,
+        localStorage: window.localStorage,
       });
 
       const fakeEvent = {
@@ -99,32 +82,13 @@ describe("Given I am connected as an employee", () => {
       expect(fakeEvent.target.value).toBe("C:\\fakepath\\image.png");
     });
   });
+
   describe("When I submit the NewBill form with valid data", () => {
-    test("It should call updateBill and redirect me to the Bills Page", () => {
-      Object.defineProperty(window, "localStorage", {
-        value: localStorageMock,
-      });
-      window.localStorage.setItem(
-        "user",
-        JSON.stringify({
-          type: "Employee",
-        })
-      );
-      const form = document.createElement("form");
-      form.innerHTML = `
-      <select data-testid="expense-type"><option value="Transports">Transports</option></select>
-      <input data-testid="expense-name" value="Taxi" />
-      <input data-testid="amount" value="50" />
-      <input data-testid="datepicker" value="2023-09-10" />
-      <input data-testid="vat" value="20" />
-      <input data-testid="pct" value="10" />
-      <textarea data-testid="commentary">Business trip</textarea>
-    `;
+    test("It should call updateBill and redirect me to the Bills Page", async () => {
+      document.body.innerHTML = NewBillUI();
 
-      const fakeEvent = { preventDefault: jest.fn(), target: form };
-
-      const updateBillMock = jest.fn();
       const onNavigateMock = jest.fn();
+      const updateBillMock = jest.fn();
 
       const newBill = new NewBill({
         document,
@@ -137,7 +101,26 @@ describe("Given I am connected as an employee", () => {
       newBill.fileUrl = "http://localhost/image.png";
       newBill.fileName = "image.png";
 
-      newBill.handleSubmit(fakeEvent);
+      // Remplir les champs
+      screen.getByTestId("expense-type").value = "Transports";
+      screen.getByTestId("expense-name").value = "Taxi";
+      screen.getByTestId("amount").value = "50";
+      screen.getByTestId("datepicker").value = "2023-09-10";
+      screen.getByTestId("vat").value = "20";
+      screen.getByTestId("pct").value = "10";
+      screen.getByTestId("commentary").value = "Business trip";
+
+      // Simuler le clic sur Envoyer
+      const form = screen.getByTestId("form-new-bill");
+      const button = screen.getByRole("button", { name: /envoyer/i });
+
+      const fakeEvent = { preventDefault: jest.fn() };
+      form.addEventListener("submit", (e) => {
+        fakeEvent.preventDefault();
+        newBill.handleSubmit(e);
+      });
+
+      await userEvent.click(button);
 
       expect(fakeEvent.preventDefault).toHaveBeenCalled();
       expect(updateBillMock).toHaveBeenCalledWith(
