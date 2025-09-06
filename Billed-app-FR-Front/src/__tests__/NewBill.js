@@ -2,11 +2,14 @@
  * @jest-environment jsdom
  */
 
-import { screen } from "@testing-library/dom";
+import { screen, fireEvent } from "@testing-library/dom";
 import NewBillUI from "../views/NewBillUI.js";
 import NewBill from "../containers/NewBill.js";
 import { localStorageMock } from "../__mocks__/localStorage.js";
 import userEvent from "@testing-library/user-event";
+import mockStore from "../__mocks__/store.js";
+import { ROUTES_PATH, ROUTES } from "../constants/routes.js";
+import router from "../app/Router.js";
 
 describe("Given I am connected as an employee", () => {
   beforeEach(() => {
@@ -138,6 +141,112 @@ describe("Given I am connected as an employee", () => {
         })
       );
       expect(onNavigateMock).toHaveBeenCalledWith("#employee/bills");
+    });
+  });
+});
+
+// integration test POST
+
+jest.mock("../app/store", () => mockStore);
+
+// -------------------
+// | TESTS 404 & 500 |
+// -------------------
+describe("Given I am connected as an employee", () => {
+  // -----------------------------------------------------------------------------------------------------------------------------------------
+  // | ERREUR 404 - MOCK RECUPERATION API ; ECHEC AVEC ERROR 404
+  // -----------------------------------------------------------------------------------------------------------------------------------------
+  describe("WHEN I SIMULATE ERROR 404", () => {
+    test("It fetches error from an API and fails with error 404", async () => {
+      // IMPLEMENTATIONS MOCK
+      jest.spyOn(mockStore, "bills");
+      jest.spyOn(console, "error").mockImplementation(() => {}); // Empêche un "console.error" de jest
+      // DEFINITION DES 2 PROPRIETES :
+      Object.defineProperty(window, "localStorage", {
+        value: localStorageMock,
+      }); // Propriété #1 : WINDOW LOCALSTORAGE
+      Object.defineProperty(window, "location", {
+        value: { hash: ROUTES_PATH["NewBill"] },
+      }); // Propriété #2 : WINDOW LOCATION
+      window.localStorage.setItem("user", JSON.stringify({ type: "Employee" })); // Assimiliation d'un ITEM, "USER", au WINDOW LOCALSTORAGE
+      document.body.innerHTML = `<div id="root"></div>`;
+      router(); // Exécution de ROUTER() pour le chemin spécifié dans WINDOW LOCATION
+      // CREATION DE onNavigate (reprend PATHNAME avec la fonction ROUTES() )
+      const onNavigate = (pathname) => {
+        document.body.innerHTML = ROUTES({ pathname });
+      };
+      // PREPARATION DE l'OBJET MOCKED qui va simuler ('mocker' 1 fois) l'erreur 404
+      mockStore.bills.mockImplementationOnce(() => {
+        return {
+          update: () => {
+            return Promise.reject(new Error("Erreur 404"));
+          },
+        };
+      });
+      // CREATION D'UNE NEWBILL
+      const newBill = new NewBill({
+        document,
+        onNavigate,
+        store: mockStore,
+        localStorage: window.localStorage,
+      });
+      // SOUMISSION DU FORMULAIRE
+      const form = screen.getByTestId("form-new-bill");
+      const handleSubmit = jest.fn((e) => newBill.handleSubmit(e)); // INVOCATION de newBill.handleSubmit() GRÂCE à JEST.FN()
+      form.addEventListener("submit", handleSubmit); // "SUBMIT" LISTENER
+      // ENVOI DU FORMULAIRE
+      fireEvent.submit(form);
+      // ATTENTE DE L'ERREUR 404
+      await new Promise(process.nextTick); // AWAIT le process "new Promise()" qui retourne l'erreur 404
+      expect(console.error).toBeCalled(); // EXPECT erreur 404
+    });
+  });
+  // -----------------------------------------------------------------------------------------------------------------------------------------
+  // | ERREUR 500 - MOCK RECUPERATION API ; ECHEC AVEC ERROR 500
+  // -----------------------------------------------------------------------------------------------------------------------------------------
+  describe("WHEN I SIMULATE ERROR 500", () => {
+    test("It fetches error from an API and fails with error 500", async () => {
+      // IMPLEMENTATIONS MOCK
+      jest.spyOn(mockStore, "bills");
+      jest.spyOn(console, "error").mockImplementation(() => {}); // Empêche un "console.error" de jest
+      // DEFINITION DES 2 PROPRIETES :
+      Object.defineProperty(window, "localStorage", {
+        value: localStorageMock,
+      }); // Propriété #1 : WINDOW LOCALSTORAGE
+      Object.defineProperty(window, "location", {
+        value: { hash: ROUTES_PATH["NewBill"] },
+      }); // Propriété #2 : WINDOW LOCATION
+      window.localStorage.setItem("user", JSON.stringify({ type: "Employee" })); // Assimiliation d'un ITEM, "USER", au WINDOW LOCALSTORAGE
+      document.body.innerHTML = `<div id="root"></div>`;
+      router(); // Exécution de ROUTER() pour le chemin spécifié dans WINDOW LOCATION
+      // CREATION DE onNavigate (reprend PATHNAME avec la fonction ROUTES() )
+      const onNavigate = (pathname) => {
+        document.body.innerHTML = ROUTES({ pathname });
+      };
+      // PREPARATION DE l'OBJET MOCKED qui va simuler ('mocker' 1 fois) l'erreur 500
+      mockStore.bills.mockImplementationOnce(() => {
+        return {
+          update: () => {
+            return Promise.reject(new Error("Erreur 500"));
+          },
+        };
+      });
+      // CREATION D'UNE NEWBILL
+      const newBill = new NewBill({
+        document,
+        onNavigate,
+        store: mockStore,
+        localStorage: window.localStorage,
+      });
+      // SOUMISSION DU FORMULAIRE
+      const form = screen.getByTestId("form-new-bill");
+      const handleSubmit = jest.fn((e) => newBill.handleSubmit(e)); // INVOCATION de newBill.handleSubmit() GRÂCE à JEST.FN()
+      form.addEventListener("submit", handleSubmit); // "SUBMIT" LISTENER
+      // ENVOI DU FORMULAIRE
+      fireEvent.submit(form);
+      // ATTENTE DE L'ERREUR 500
+      await new Promise(process.nextTick); // AWAIT le process "new Promise()" qui retourne l'erreur 500
+      expect(console.error).toBeCalled(); // EXPECT erreur 500
     });
   });
 });
